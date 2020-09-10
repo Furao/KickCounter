@@ -3,81 +3,25 @@ import { StyleSheet, Text, View, Button, Alert, Dimensions, StatusBar} from 'rea
 import { VictoryBar, VictoryChart, VictoryTheme, VictoryLabel } from "victory-native";
 import moment from 'moment';
 import * as SplashScreen from 'expo-splash-screen';
+import GestureRecognizer, {swipeDirections} from 'react-native-swipe-gestures';
 
 const screenWidth = Dimensions.get("window").width;
 
 var Datastore = require('react-native-local-mongodb')
   , db = new Datastore({ filename: 'asyncStorageKey', autoload: true });
 
-// db.persistence.setAutocompactionInterval(1000)
-
-// function checkDB() {
-//   let num = db.count({}, function (err, count) {
-//     var i = 0;
-//     console.log(count);
-//     var today = new Date();
-//     today.setMilliseconds(0);
-//     today.setSeconds(0);
-//     today.setMinutes(0);
-//     if(count == 0) {
-//       console.log("Filling Database");
-//       db.insert({date: today, kicks: 0});
-//       for (i = 0; i < 720; i++) {
-//         db.insert({date: today, kicks: 0});
-//         today = new Date(today-3600000);
-//       }
-//     }
-//     else {
-//       db.find({}).sort({ date: -1 }).limit(1).exec(function (err, docs) {
-//         let latest_hour = docs[0].date
-//         console.log(latest_hour);
-//         console.log(today);
-//         if(latest_hour.getTime() != today.getTime()) {
-//           console.log("Latest hour is not now");
-//           let hours_between=(today-latest_hour)/3600000;
-//
-//           for(i = 0; i<(hours_between);i++){
-//             console.log("adding empty hour");
-//             latest_hour = new Date(latest_hour+3600000);
-//             db.insert({date: latest_hour, kicks: 0});
-//           }
-//         }
-//       });
-//     }
-//   });
-// }
-
-// function kicked() {
-//   var today = new Date();
-//   today.setMilliseconds(0);
-//   today.setSeconds(0);
-//   today.setMinutes(0);
-//   // var curr_time = <Moment element={Text}>today</Moment>;
-//   db.find({date: today}, function (err, docs) {
-//
-//     if(docs.length == 0) {
-//       db.find({}).sort({ date: -1 }).limit(1).exec(function (err, docs) {
-//         let latest_hour = docs[0].date
-//         let hours_between=(today-latest_hour)/3600000;
-//
-//         var i = 0;
-//         for(i = 0; i<(hours_between-1);i++){
-//           latest_hour = new Date(latest_hour+3600000);
-//           db.insert({date: latest_hour, kicks: 0});
-//         }
-//         console.log("No kicks logged at " + today);
-//         db.insert({kicks: 1, date: today});
-//       });
-//     }
-//     else {
-//       db.update({date: today}, { $inc: { kicks: 1 } }, {});
-//     }
-//   })
-//
-//   Alert.alert("Added a baby kick")
-//
-// }
-
+function EndButton(props) {
+  const isCounting = props.isCounting;
+  const onPress = props.onPress;
+  if (isCounting) {
+    return <Button
+        onPress={onPress}
+        title="Stop Counting"
+        color="#2eb872"
+      />;
+  }
+  return null;
+}
 
 export default class App extends React.Component {
 
@@ -90,15 +34,16 @@ export default class App extends React.Component {
       entries: 0,
       counting: false,
       kickButton_string: "Start Counting Kicks",
-      appIsReady: false
+      appIsReady: false,
+      timeoutID: 0
     };
-    // this.getData();
     this.hourFinished = this.hourFinished.bind(this);
+    this.onSwipe = this.onSwipe.bind(this);
   }
 
-  async checkDB() {
+  checkDB() {
     var obj = this;
-    await db.find({}).sort({ date: -1 }).limit(1).exec(function (err, docs) {
+    db.find({}).sort({ date: -1 }).limit(1).exec(function (err, docs) {
       if(docs.length) {
         db.count({}, function (err, count) {
           obj.setState({
@@ -108,12 +53,18 @@ export default class App extends React.Component {
         if(docs[0].active == 1){
           let start_time = docs[0].date;
           var curr_time = new Date();
-          if(curr_time-start_time > 3*1000)
+          var time_left = curr_time-start_time-(3600000);
+          if(time_left>0)
           {
             obj.hourFinished(docs[0]._id);
           }
           else
           {
+            var myTimeoutID;
+            myTimeoutID = window.setTimeout(obj.hourFinished, Math.abs(time_left), docs[0]._id);
+            obj.setState({
+              timeoutID: myTimeoutID
+            });
             obj.setState({
               counting: true
             });
@@ -126,12 +77,12 @@ export default class App extends React.Component {
       }
     });
     this.setState({ appIsReady: true }, async () => {
-      await SplashScreen.hideAsync();
+      SplashScreen.hideAsync();
     });
   }
 
   hourFinished(id) {
-    Alert.alert("Finished hour for counting")
+    Alert.alert("Finished counting")
     var obj = this;
     db.update({ _id: id }, { $set: { active: 0 } }, {}, function () {
       db.persistence.compactDatafile();
@@ -141,6 +92,7 @@ export default class App extends React.Component {
       obj.setState({
         counting: false
       });
+
     });
   }
 
@@ -149,9 +101,7 @@ export default class App extends React.Component {
     if(this.state.counting)
     {
       db.find({}).sort({ date: -1 }).limit(1).exec(function (err, docs) {
-        console.log(docs);
         if(docs[0].active == 1){
-          console.log("Still counting kicks");
           db.update({ _id: docs[0]._id }, { $push: { kicks: new Date() } }, {}, function () {
             db.persistence.compactDatafile();
           });
@@ -163,13 +113,16 @@ export default class App extends React.Component {
     {
       var curr_time = new Date();
       db.insert({date: curr_time, active: 1, kicks: []}, function (err, newDoc) {
-        window.setTimeout(obj.hourFinished, 3*1000, newDoc._id);
+        var myTimeoutID;
+        myTimeoutID = window.setTimeout(obj.hourFinished, 3600000, newDoc._id);
+        obj.setState({
+          timeoutID: myTimeoutID
+        });
         obj.setState({
           entries: obj.state.entries+1
         });
         db.persistence.compactDatafile();
       });
-      console.log("Start Counting Kicks");
       this.setState({
         kickButton_string: "Baby Kicked"
       });
@@ -195,72 +148,79 @@ export default class App extends React.Component {
     });
   }
 
-  async componentDidMount() {
+  stopCounting() {
+    var obj = this;
+    db.find({}).sort({ date: -1 }).limit(1).exec(function (err, docs) {
+      if(docs[0].active == 1){
+        window.clearTimeout(obj.timeoutID);
+        obj.hourFinished(docs[0]._id);
+      }
+    });
+  }
+
+  componentDidMount() {
     // Prevent native splash screen from autohiding
     try {
-      await SplashScreen.preventAutoHideAsync();
+      SplashScreen.preventAutoHideAsync();
     } catch (e) {
       console.warn(e);
     }
     this.checkDB();
     this.setStateInterval = window.setInterval(() => {
         this.getData();
-    }, 250);
+    }, 500);
   }
 
     componentWillUnmount() {
       window.clearInterval(this.setStateInterval);
     }
 
+    onSwipe(gestureName, gestureState) {
+      const {SWIPE_UP, SWIPE_DOWN, SWIPE_LEFT, SWIPE_RIGHT} = swipeDirections;
+      switch (gestureName) {
+        case SWIPE_UP:
+          break;
+        case SWIPE_DOWN:
+          break;
+        case SWIPE_LEFT:
+          if(this.state.skip>0)
+          {
+            this.onRight()
+          }
+          break;
+        case SWIPE_RIGHT:
+          if(this.state.entries>this.state.skip+4)
+          {
+            this.onLeft()
+          }
 
-// {(d) => moment(d.date).format('MM/DD ha')}
+          break;
+      }
+    }
+
     getData() {
       var obj = this;
       db.find({}).sort({ date: -1 }).limit(4).skip(this.state.skip).exec(function (err, docs) {
-        // console.log(docs);
-        // data = docs
-        const new_data = docs.map((x) => {
-          return {date: x.date, kicks: x.kicks.length};
-        });
-        obj.setState({
-          data: new_data
-        });
+        if(docs.length){
+          const new_data = docs.map((x) => {
+            return {date: x.date, kicks: x.kicks.length};
+          });
+          if((new_data[0].date!=obj.state.data[0].date) || (new_data[0].kicks!=obj.state.data[0].kicks))
+          {
+            obj.setState({
+              data: new_data
+            });
+          }
+      }
       });
-      if(this.state.counting==true) {
-        this.setState({
-          kickButton_string: "Baby Kicked"
-        });
-      }
-      else {
-        this.setState({
-          kickButton_string: "Start Counting Kicks"
-        });
-      }
-
-    // const data = [
-    //   { date: "08/24\r\n1pm", kicks: 10 },
-    //   { date: "08/24\r\n2pm", kicks: 8 },
-    //   { date: "08/24\r\n3pm", kicks: 16 },
-    //   { date: "08/24\r\n4pm", kicks: 32 }
-    // ];
-    // let data = await db.find({}).sort({ date: -1 }).limit(2).exec(function (err, docs) {
-    //   // console.log(docs);
-    //   // data = docs
-    //   return docs;
-    // });
-    // console.log(data);
-    // return paginateData();
-    // let data = [
-    //   { date: "08/24\r\n1pm", kicks: 10 },
-    //   { date: "08/24\r\n2pm", kicks: 8 },
-    //   { date: "08/24\r\n3pm", kicks: 16 },
-    //   { date: "08/24\r\n4pm", kicks: 32 }
-    // ];
-    // console.log(data);
-    // return data;
   }
 
   render() {
+    const config = {
+      velocityThreshold: 0.01,
+      directionalOffsetThreshold: 500
+    };
+
     if (!this.state.appIsReady) {
       return null;
     }
@@ -275,32 +235,38 @@ export default class App extends React.Component {
             title={this.state.kickButton_string}
             color="#2eb872"
           />
+          <View style = {{height:20}} />
+            <EndButton isCounting={this.state.counting} onPress={this.stopCounting.bind(this)}/>
         </View>
         <View style = {styles.flexRow} >
           <Button
             onPress={this.onLeft.bind(this)}
             disabled={this.state.entries<=this.state.skip+4}
-            title="Left"
+            title="<"
             color="#2eb872"
           />
           <Button
             onPress={this.onRight.bind(this)}
             disabled={this.state.skip<=0}
-            title="Right"
+            title=">"
             color="#2eb872"
           />
         </View>
+        <GestureRecognizer style={styles.graphView}
+       onSwipe={(direction, state) => this.onSwipe(direction, state)}
+      config={config}
+      >
         <View style = {styles.graphView} >
-          <VictoryChart domainPadding={30} width={screenWidth} theme={VictoryTheme.material}>
+          <VictoryChart width={screenWidth} domainPadding={20}>
               <VictoryBar
                 domain={{y: [0, 40]}}
-                // alignment="start"
                 data={this.state.data}
                 sortKey="date"
-                x={(d) => moment(d.date).format("MM/DD") + "\r\n"+ moment(d.date).format("h:mm:ss a")}
+                x={(d) => moment(d.date).format("MM/DD") + "\r\n"+ moment(d.date).format("HH:mm:ss")}
                 y="kicks"
                 labels={({ datum }) => `${datum.kicks}`}
                 barWidth={30}
+                style={{ data: {fill: "#a3de83"} }}
                 labelComponent={
                   <VictoryLabel
                     textAnchor={({ text }) => "middle"}
@@ -308,7 +274,9 @@ export default class App extends React.Component {
                 }
               />
             </VictoryChart>
+
         </View>
+                </GestureRecognizer>
         <View style = {{height:30}} />
       </View>
     );
