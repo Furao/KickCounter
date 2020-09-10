@@ -19,6 +19,7 @@
     "react-native-chart-kit": "^6.6.0",
     "react-native-local-mongodb": "^2.2.9",
     "react-native-svg": "^12.1.0",
+    "react-native-swipe-gestures": "^1.0.5",
     "react-native-web": "~0.11.7",
     "victory-native": "^35.0.1"
   },
