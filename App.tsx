@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Text, View, Button, Alert, Dimensions, StatusBar, TouchableOpacity, YellowBox} from 'react-native';
+import { StyleSheet, Text, View, Button, Alert, Dimensions, StatusBar, TouchableOpacity, YellowBox, Image} from 'react-native';
 import { VictoryBar, VictoryChart, VictoryTheme, VictoryLabel } from "victory-native";
 import moment from 'moment';
 import * as SplashScreen from 'expo-splash-screen';
@@ -48,7 +48,7 @@ export default class App extends React.Component {
       entries: 0,
       counting: false,
       kickButton_string: "Start Counting Kicks",
-      appIsReady: false,
+      appIsReady: 0,
       splashScreenShowing: true,
       timeoutID: 0
     };
@@ -90,7 +90,7 @@ export default class App extends React.Component {
 
         }
       }
-      obj.setState({ appIsReady: true });
+      obj.setState({ appIsReady: 1 });
     });
   }
 
@@ -242,9 +242,14 @@ export default class App extends React.Component {
       }
       });
       if(this.state.splashScreenShowing) {
-        if(this.state.appIsReady) {
+        if(this.state.appIsReady == 2) {
           SplashScreen.hideAsync();
           this.setState({splashScreenShowing: false})
+        }
+        if(this.state.appIsReady == 1) {
+          this.setState({
+            appIsReady: 2
+          });
         }
       }
   }
@@ -257,6 +262,31 @@ export default class App extends React.Component {
 
     if (!this.state.appIsReady) {
       return null;
+    }
+    let chart;
+    if(this.state.data[0].date == 0){
+      chart = <Image style={{width: 150, height: 150, opacity: 0.25}}
+          source={require('./assets/chart_bar.png')}
+        />
+    }
+    else {
+      chart = <VictoryChart width={screenWidth} domainPadding={20}>
+          <VictoryBar
+            domain={{y: [0, 40]}}
+            data={this.state.data}
+            sortKey="date"
+            x={(d) => moment(d.date).format("MM/DD") + "\r\n"+ moment(d.date).format("hh:mm A")}
+            y="kicks"
+            labels={({ datum }) => `${datum.kicks}`}
+            barWidth={30}
+            style={{ data: {fill: "#a3de83"} }}
+            labelComponent={
+              <VictoryLabel
+                textAnchor={({ text }) => "middle"}
+              />
+            }
+          />
+        </VictoryChart>;
     }
     return (
       <View style={styles.container}>
@@ -297,31 +327,15 @@ export default class App extends React.Component {
 
     </TouchableOpacity>
         </View>
-        <GestureRecognizer style={styles.graphView}
-       onSwipe={(direction, state) => this.onSwipe(direction, state)}
-      config={config}
-      >
-        <View style = {styles.graphView} >
-          <VictoryChart width={screenWidth} domainPadding={20}>
-              <VictoryBar
-                domain={{y: [0, 40]}}
-                data={this.state.data}
-                sortKey="date"
-                x={(d) => moment(d.date).format("MM/DD") + "\r\n"+ moment(d.date).format("hh:mm A")}
-                y="kicks"
-                labels={({ datum }) => `${datum.kicks}`}
-                barWidth={30}
-                style={{ data: {fill: "#a3de83"} }}
-                labelComponent={
-                  <VictoryLabel
-                    textAnchor={({ text }) => "middle"}
-                  />
-                }
-              />
-            </VictoryChart>
-
-        </View>
-                </GestureRecognizer>
+        <GestureRecognizer
+          style={styles.graphView}
+          onSwipe={(direction, state) => this.onSwipe(direction, state)}
+          config={config}
+        >
+          <View style ={styles.graphView}>
+            {chart}
+          </View>
+        </GestureRecognizer>
         <View style = {{height:30}} />
       </View>
     );
@@ -391,20 +405,20 @@ const styles = StyleSheet.create({
     borderColor: '#fff'
   },
   ArrowButtonStyle: {
-    width:40,
-    height:40,
+    width:36,
+    height:36,
     backgroundColor:'#2eb872',
-    borderRadius:20,
+    borderRadius:18,
     alignItems:'center',
     justifyContent:'center',
     borderWidth: 1,
     borderColor: '#fff'
   },
   DisabledButton: {
-    width:40,
-    height:40,
+    width:36,
+    height:36,
     backgroundColor:'#bfbfbf',
-    borderRadius:20,
+    borderRadius:18,
     alignItems:'center',
     justifyContent:'center',
     borderWidth: 1,
