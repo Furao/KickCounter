@@ -1,9 +1,21 @@
 import React from 'react';
-import { StyleSheet, Text, View, Button, Alert, Dimensions, StatusBar, TouchableOpacity} from 'react-native';
+import { StyleSheet, Text, View, Button, Alert, Dimensions, StatusBar, TouchableOpacity, YellowBox} from 'react-native';
 import { VictoryBar, VictoryChart, VictoryTheme, VictoryLabel } from "victory-native";
 import moment from 'moment';
 import * as SplashScreen from 'expo-splash-screen';
 import GestureRecognizer, {swipeDirections} from 'react-native-swipe-gestures';
+import _ from 'lodash';
+
+
+YellowBox.ignoreWarnings(['Setting a timer']);
+const _console = _.clone(console);
+console.warn = message => {
+  if (message.indexOf('Setting a timer') <= -1) {
+    _console.warn(message);
+  }
+};
+
+SplashScreen.preventAutoHideAsync();
 
 const screenWidth = Dimensions.get("window").width;
 
@@ -37,6 +49,7 @@ export default class App extends React.Component {
       counting: false,
       kickButton_string: "Start Counting Kicks",
       appIsReady: false,
+      splashScreenShowing: true,
       timeoutID: 0
     };
     this.hourFinished = this.hourFinished.bind(this);
@@ -77,9 +90,7 @@ export default class App extends React.Component {
 
         }
       }
-    });
-    this.setState({ appIsReady: true }, async () => {
-      SplashScreen.hideAsync();
+      obj.setState({ appIsReady: true });
     });
   }
 
@@ -185,7 +196,7 @@ export default class App extends React.Component {
     this.checkDB();
     this.setStateInterval = window.setInterval(() => {
         this.getData();
-    }, 500);
+    }, 250);
   }
 
     componentWillUnmount() {
@@ -230,6 +241,12 @@ export default class App extends React.Component {
           }
       }
       });
+      if(this.state.splashScreenShowing) {
+        if(this.state.appIsReady) {
+          SplashScreen.hideAsync();
+          this.setState({splashScreenShowing: false})
+        }
+      }
   }
 
   render() {
@@ -290,7 +307,7 @@ export default class App extends React.Component {
                 domain={{y: [0, 40]}}
                 data={this.state.data}
                 sortKey="date"
-                x={(d) => moment(d.date).format("MM/DD") + "\r\n"+ moment(d.date).format("HH:mm:ss")}
+                x={(d) => moment(d.date).format("MM/DD") + "\r\n"+ moment(d.date).format("hh:mm A")}
                 y="kicks"
                 labels={({ datum }) => `${datum.kicks}`}
                 barWidth={30}
