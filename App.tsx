@@ -5,6 +5,7 @@ import moment from 'moment';
 import * as SplashScreen from 'expo-splash-screen';
 import GestureRecognizer, {swipeDirections} from 'react-native-swipe-gestures';
 import _ from 'lodash';
+import Constants from "expo-constants";
 
 
 YellowBox.ignoreWarnings(['Setting a timer']);
@@ -350,6 +351,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 5,
     backgroundColor: '#feffea',
+    paddingTop: Constants.statusBarHeight,
     // alignItems: 'center',
   },
   actionBox: {
