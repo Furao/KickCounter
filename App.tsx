@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Text, View, Button, Alert, Dimensions, StatusBar} from 'react-native';
+import { StyleSheet, Text, View, Button, Alert, Dimensions, StatusBar, TouchableOpacity} from 'react-native';
 import { VictoryBar, VictoryChart, VictoryTheme, VictoryLabel } from "victory-native";
 import moment from 'moment';
 import * as SplashScreen from 'expo-splash-screen';
@@ -10,15 +10,17 @@ const screenWidth = Dimensions.get("window").width;
 var Datastore = require('react-native-local-mongodb')
   , db = new Datastore({ filename: 'asyncStorageKey', autoload: true });
 
-function EndButton(props) {
+function EndTouchableOpacity(props) {
   const isCounting = props.isCounting;
   const onPress = props.onPress;
   if (isCounting) {
-    return <Button
-        onPress={onPress}
-        title="Stop Counting"
-        color="#2eb872"
-      />;
+    return <TouchableOpacity
+      style={styles.CancelButtonStyle}
+      activeOpacity = { 0.3 }
+      onPress={onPress}
+   >
+   <Text style={styles.TextStyle}> Stop Counting </Text>
+   </TouchableOpacity>;
   }
   return null;
 }
@@ -148,7 +150,7 @@ export default class App extends React.Component {
     });
   }
 
-  stopCounting() {
+  actuallyStopCounting() {
     var obj = this;
     db.find({}).sort({ date: -1 }).limit(1).exec(function (err, docs) {
       if(docs[0].active == 1){
@@ -156,6 +158,21 @@ export default class App extends React.Component {
         obj.hourFinished(docs[0]._id);
       }
     });
+  }
+
+  stopCounting() {
+    Alert.alert(
+      'Stop Counting Session?',
+      '',
+      [
+        {
+          text: 'No',
+          style: 'cancel'
+        },
+        { text: 'Yes', onPress:this.actuallyStopCounting.bind(this) }
+      ],
+      { cancelable: false }
+    );
   }
 
   componentDidMount() {
@@ -230,27 +247,38 @@ export default class App extends React.Component {
         <Text style={styles.title}>Baby Kick Counter</Text>
 
         <View style = {styles.actionBox} >
-          <Button
-            onPress={this.onKicked.bind(this)}
-            title={this.state.kickButton_string}
-            color="#2eb872"
-          />
-          <View style = {{height:20}} />
-            <EndButton isCounting={this.state.counting} onPress={this.stopCounting.bind(this)}/>
+        <TouchableOpacity
+          style={styles.SubmitButtonStyle}
+          activeOpacity = { 0.3 }
+          onPress={ this.onKicked.bind(this) }
+       >
+       <Text style={styles.TextStyle}> {this.state.kickButton_string} </Text>
+
+      </TouchableOpacity>
         </View>
+          <View style = {{height:20}} />
+          <View style = {styles.stopBox} >
+            <EndTouchableOpacity isCounting={this.state.counting} onPress={this.stopCounting.bind(this)} />
+          </View>
         <View style = {styles.flexRow} >
-          <Button
-            onPress={this.onLeft.bind(this)}
-            disabled={this.state.entries<=this.state.skip+4}
-            title="<"
-            color="#2eb872"
-          />
-          <Button
-            onPress={this.onRight.bind(this)}
-            disabled={this.state.skip<=0}
-            title=">"
-            color="#2eb872"
-          />
+        <TouchableOpacity
+          style={this.state.entries<=this.state.skip+4 ? styles.DisabledButton : styles.ArrowButtonStyle}
+          activeOpacity = { 0.3 }
+          onPress={ this.onLeft.bind(this) }
+          disabled={this.state.entries<=this.state.skip+4}
+       >
+       <Text style={styles.TextStyle}> {"<"} </Text>
+
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={this.state.skip<=0 ? styles.DisabledButton : styles.ArrowButtonStyle}
+        activeOpacity = { 0.3 }
+        onPress={ this.onRight.bind(this) }
+        disabled={this.state.skip<=0}
+     >
+     <Text style={styles.TextStyle}> {">"} </Text>
+
+    </TouchableOpacity>
         </View>
         <GestureRecognizer style={styles.graphView}
        onSwipe={(direction, state) => this.onSwipe(direction, state)}
@@ -294,6 +322,12 @@ const styles = StyleSheet.create({
     // alignItems: 'center',
   },
   actionBox: {
+    flex: 2,
+    backgroundColor: '#feffea',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stopBox: {
     flex: 1,
     backgroundColor: '#feffea',
     alignItems: 'center',
@@ -319,4 +353,48 @@ const styles = StyleSheet.create({
     fontSize: 30,
     padding: 5,
   },
+  SubmitButtonStyle: {
+    width:120,
+    height:120,
+    backgroundColor:'#2eb872',
+    borderRadius:60,
+    alignItems:'center',
+    justifyContent:'center',
+    borderWidth: 1,
+    borderColor: '#fff'
+  },
+  CancelButtonStyle: {
+    width:80,
+    height:80,
+    backgroundColor:'#2eb872',
+    borderRadius:40,
+    alignItems:'center',
+    justifyContent:'center',
+    borderWidth: 1,
+    borderColor: '#fff'
+  },
+  ArrowButtonStyle: {
+    width:40,
+    height:40,
+    backgroundColor:'#2eb872',
+    borderRadius:20,
+    alignItems:'center',
+    justifyContent:'center',
+    borderWidth: 1,
+    borderColor: '#fff'
+  },
+  DisabledButton: {
+    width:40,
+    height:40,
+    backgroundColor:'#bfbfbf',
+    borderRadius:20,
+    alignItems:'center',
+    justifyContent:'center',
+    borderWidth: 1,
+    borderColor: '#fff'
+  },
+  TextStyle:{
+      color:'#fff',
+      textAlign:'center',
+  }
 });
