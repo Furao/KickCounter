@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Text, View, Button, Alert, Dimensions, StatusBar, TouchableOpacity, YellowBox, Image} from 'react-native';
+import { StyleSheet, Text, View, Button, Alert, Dimensions, StatusBar, TouchableOpacity, YellowBox, Image, Platform} from 'react-native';
 import { VictoryBar, VictoryChart, VictoryTheme, VictoryLabel } from "victory-native";
 import moment from 'moment';
 import * as SplashScreen from 'expo-splash-screen';
@@ -289,9 +289,10 @@ export default class App extends React.Component {
           />
         </VictoryChart>;
     }
+    statusBar = Platform.OS == 'ios' ? <StatusBar style="auto" /> : null;
     return (
       <View style={styles.container}>
-        <StatusBar style="auto" />
+        {statusBar}
         <Text style={styles.title}>Baby Kick Counter</Text>
 
         <View style = {styles.actionBox} >
